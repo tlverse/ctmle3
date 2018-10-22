@@ -1,0 +1,42 @@
+Package: ctmle3
+Title: Pipelines for Machine Learning and Super Learning
+Version: 0.1.0
+Authors@R: c(
+    person("Weixin", "Cai", email = "wcai@berkeley.edu",
+           role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0003-2680-3066")),
+    person("Jeremy", "Coyle", email = "jeremyrcoyle@gmail.com",
+           role = "aut",
+           comment = c(ORCID = "0000-0002-9874-6649"))
+  )
+Maintainer: Weixin Cai <wcai@berkeley.edu>
+Description: Modern implementation of the Collaborative Targeted Maximum
+    Likelihood Estimator (C-TMLE) algorithm.
+Depends: R (>= 3.0.0)
+Imports:
+    sl3,
+    tmle3
+Suggests:
+    hal9001 (>= 0.2.0),
+    knitr,
+    R.rsp,
+    testthat,
+    dplyr,
+    data.table,
+    origami
+Remotes:
+    github::tlverse/sl3,
+    github::tlverse/tmle3,
+    github::tlverse/hal9001,
+    github::tlverse/origami,
+License: GPL-3
+URL: https://ctmle3.tlverse.org
+BugReports: https://github.com/tlverse/ctmle3/issues
+Encoding: UTF-8
+LazyData: yes
+LazyLoad: yes
+VignetteBuilder:
+    knitr,
+    R.rsp
+RoxygenNote: 6.1.0
+

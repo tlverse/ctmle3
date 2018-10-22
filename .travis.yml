@@ -1,0 +1,47 @@
+branches:
+  only:
+  - master
+  - devel
+
+env:
+  global:
+  - RGL_USE_NULL=TRUE
+  - PKG_CFLAGS="-O3 -Wall -pedantic"
+
+language: r
+sudo: required
+cache: packages
+
+cran: "http://cran.rstudio.com"
+warnings_are_errors: true
+r_build_args: '--no-manual'
+r_check_args: '--no-build-vignettes --no-manual'
+
+r:
+  - release
+  - devel
+
+r_packages:
+  - devtools
+  - covr
+  - drat
+
+r_github_packages:
+  - r-lib/devtools@2d012d1
+  - r-lib/sessioninfo
+  - jimhester/covr
+  - tlverse/sl3
+  - tlverse/tmle3
+  - tlverse/hal9001
+
+after_success:
+  - travis_wait 80 Rscript -e 'covr::codecov()'
+
+on_failure:
+  - "./travis-tool.sh dump_logs"
+
+notifications:
+  email:
+    on_success: change
+    on_failure: change
+
