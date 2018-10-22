@@ -6,7 +6,7 @@
 [![Travis-CI Build
 Status](https://travis-ci.org/tlverse/ctmle3.svg?branch=master)](https://travis-ci.org/tlverse/ctmle3)
 [![Build
-status](https://ci.appveyor.com/api/projects/status/lfv64jnygnmx6txi?svg=true)](https://ci.appveyor.com/project/jeremyrcoyle/ctmle3)
+status](https://ci.appveyor.com/api/projects/status/lfv64jnygnmx6txi?svg=true)](https://ci.appveyor.com/project/tlverse/ctmle3)
 [![Coverage
 Status](https://img.shields.io/codecov/c/github/tlverse/ctmle3/master.svg)](https://codecov.io/github/tlverse/ctmle3?branch=master)
 <!-- [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) -->
