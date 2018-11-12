@@ -49,10 +49,10 @@ LF_oat <- R6::R6Class(
       ...,
       type = "density"
       ) {
-      super$initialize(name, ..., type = type)
-      self$LF_Q <- LF_Q
-      self$tmle_task_training <- tmle_task_training
-      private$.learner <- learner
+        super$initialize(name, learner, ..., type = type)
+        self$LF_Q <- LF_Q
+        self$tmle_task_training <- tmle_task_training
+        private$.learner <- learner
     },
     delayed_train = function(tmle_task) {
       if (self$learner$is_trained) {
@@ -76,7 +76,7 @@ LF_oat <- R6::R6Class(
         self$LF_Q,
         tmle_task,
         self$tmle_task_training
-        )
+      )
       learner <- self$learner
       if (cv_fold == -1) {
         preds <- learner$predict(learner_task)
@@ -86,6 +86,11 @@ LF_oat <- R6::R6Class(
       return(preds)
     },
     get_density = function(tmle_task, cv_fold) {
+      learner_task <- self$create_regression_task(
+        self$LF_Q,
+        tmle_task,
+        self$tmle_task_training
+      )
       preds <- self$get_mean(tmle_task, cv_fold)
       outcome_type <- self$learner$training_task$outcome_type
       observed <- outcome_type$format(learner_task$Y)

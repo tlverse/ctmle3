@@ -21,56 +21,21 @@ node_list <- list(
   Y = "haz"
 )
 
-tmle_spec <- tmle_TSM_all()
+tmle_spec <- tmle_oat_TSM_all()
 tmle_task <- tmle_spec$make_tmle_task(cpp, node_list)
 
+# WILSON: learner_list[["Y"]] = hal_Q
 hal_Q <- sl3::Lrnr_hal9001$new(
   fit_type = "glmnet",
   n_folds = 3,
   use_min = TRUE
 )
-
-#generate LF_Q
-LF_Q <- define_lf(LF_fit, "Y", learner = hal_Q, type = "mean")
-LF_Q_delayed <- LF_Q$delayed_train(tmle_task)
-Q_learner_fit <- LF_Q_delayed$compute()
-LF_Q$train(tmle_task, Q_learner_fit)
-
-
-
-
-
-
-
-
-
-
-
-factor_list <- list(
-  define_lf(LF_emp, "W"),
-  define_lf(LF_oat, "A", learner = learner_list[["A"]]),
-)
-
-likelihood_def <- Likelihood$new(factor_list)
-
-# fit_likelihood
-likelihood <- likelihood_def$train(tmle_task)
-return(likelihood)
-initial_likelihood <- ctmle3::make_outcome_adjusted_likelihood(
-    tmle_spec,
-    tmle_task
-    )
-updater <- tmle3_Update$new()
-targeted_likelihood <- Targeted_Likelihood$new(initial_likelihood, updater)
-intervention <- define_lf(LF_static, "A", value = 1)
-tsm <- define_param(Param_TSM, targeted_likelihood, intervention)
-updater$tmle_params <- tsm
-tmle_fit <- fit_tmle3(tmle_task, targeted_likelihood, list(tsm), updater)
-
+learner_list <- list(Y = hal_Q, A = hal_Q)
+oatmle_fit <- tmle3::tmle3(tmle_spec, cpp, node_list, learner_list = learner_list)
 # extract results
-tmle3_psi <- tmle_fit$summary$tmle_est
-tmle3_se <- tmle_fit$summary$se
-tmle3_epsilon <- updater$epsilons[[1]]$Y
+tmle3_psi <- oatmle_fit$summary$tmle_est
+tmle3_se <- oatmle_fit$summary$se
+tmle3_epsilon <- oatmle_fit$updater$epsilons[[1]]$Y
 tmle3_psi
 tmle3_se
 tmle3_epsilon

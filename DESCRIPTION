@@ -15,7 +15,10 @@ Description: Modern implementation of the Collaborative Targeted Maximum
 Depends: R (>= 3.0.0)
 Imports:
     sl3,
-    tmle3
+    tmle3,
+    R6,
+    methods,
+    uuid
 Suggests:
     hal9001 (>= 0.2.0),
     knitr,
