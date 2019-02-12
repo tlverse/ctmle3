@@ -9,13 +9,14 @@
 #'
 #' @examples
 #' # TO_DO
-make_outcome_adjusted_likelihood <- function(tmle_spec, tmle_task) {
+make_outcome_adjusted_likelihood <- function(tmle_spec, tmle_task, ...) {
   # stratified Q fit
   task_Q <- tmle_task$get_regression_task("Y")
   hal_Q <- sl3::Lrnr_hal9001$new(
     fit_type = "glmnet",
     n_folds = 3,
-    use_min = TRUE
+    use_min = TRUE,
+    ...
   )
   stratified_Q <- sl3::Lrnr_stratified$new(
     lrnr = hal_Q,
