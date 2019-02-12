@@ -27,12 +27,13 @@ r_packages:
   - drat
 
 r_github_packages:
-  - r-lib/devtools@2d012d1
+  - r-lib/devtools
   - r-lib/sessioninfo
   - jimhester/covr
   - tlverse/sl3
   - tlverse/tmle3
   - tlverse/hal9001
+  - tlverse/origami
 
 after_success:
   - travis_wait 80 Rscript -e 'covr::codecov()'
