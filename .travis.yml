@@ -22,12 +22,15 @@ r_packages:
 - covr
 - drat
 r_github_packages:
-- r-lib/devtools
-- r-lib/sessioninfo
-- jimhester/covr
-- tlverse/sl3
-- tlverse/tmle3
-- tlverse/hal9001
+  - r-lib/devtools
+  - r-lib/sessioninfo
+  - jimhester/covr
+  - tlverse/sl3
+  - tlverse/tmle3
+  - tlverse/hal9001
+  - tlverse/origami
+
+>>>>>>> oat
 after_success:
 - travis_wait 80 Rscript -e 'covr::codecov()'
 on_failure:
