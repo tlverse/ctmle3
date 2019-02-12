@@ -4,7 +4,7 @@
 \alias{make_outcome_adjusted_likelihood}
 \title{Run straitified Q fit and use the non-zero basis to restrict the basis for g fit.}
 \usage{
-make_outcome_adjusted_likelihood(tmle_spec, tmle_task)
+make_outcome_adjusted_likelihood(tmle_spec, tmle_task, ...)
 }
 \arguments{
 \item{tmle_spec}{(tmle3_Spec) specifying the spec}
