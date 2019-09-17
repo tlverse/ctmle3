@@ -25,13 +25,13 @@ if (getRversion() < '3.6.0') {
 # And estimate effect of marital status on defaulting on next payment  
 # in the real dataset to use as a starting point.
 #------------------------------------------------------------------
-d <- read.csv("default of credit card clients.csv", skip = 1)
+d <- read.csv("get_data/default of credit card clients.csv", skip = 1)
 
  # Drop ID column
  d <- d[,-1]
  # change sex and marital status to binary 0/1
- d$sex[d$sex == 2] <- 0  # 1 male, 0 female
- d$marriage[d$marriage != 1] <- 0
+ d$SEX[d$SEX == 2] <- 0  # 1 male, 0 female
+ d$MARRIAGE[d$MARRIAGE != 1] <- 0
 # column 24 is the outcome - default on next payment or not
 # column 4 is treatment - marital status
 d <- d[,c(24, 4, 1:3, 5:23)]  # 30000 x 24
@@ -125,12 +125,12 @@ set.seed(3)
 colnames(d.mod3)[-(1:2)] <- paste0("V", 1:(ncol(d)-2))
 niter <- 100
 n.b <- 500
-for (i in mod3_files){
-	b <- sample(1:n, n.b, replace = TRUE)
-	d.mod3$A[b] <-rbinom(n.b, 1, g1W.mod3[b])
-	d.mod3$Y[b]<-  rbinom(n.b, 1, plogis(d.mod3$A + logit.drs.mod3)[b])
-	write.csv(d.mod3[b,], file = paste0("creditCardMod3", i , ".csv"), row.names = FALSE)
-}
+
+b <- sample(1:n, n.b, replace = TRUE)
+d.mod3$A[b] <-rbinom(n.b, 1, g1W.mod3[b])
+d.mod3$Y[b]<-  rbinom(n.b, 1, plogis(d.mod3$A + logit.drs.mod3)[b])
+write.csv(d.mod3[b,], file = paste0("get_data/creditCardMod3.csv"), row.names = FALSE)
+
 
 # Modification 4: Treatment effect heterogeneity + potential model misspecification
 d.mod4 <- d
