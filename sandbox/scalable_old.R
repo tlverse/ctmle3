@@ -63,72 +63,81 @@ sl_A <- Lrnr_sl$new(learners = unlist(list(lrnr_mean, lrnr_glm, xgb_learners),
 # generates all triplets or stops based on a penatly
 ################################################################################
 
-generate_triplets <- function(tmle_spec, tmle_task, Q_fit, g_fits, 
+generate_triplets <- function(tmle_spec, tmle_task, sl_Y, sl_A, g_models,
                               convergence_type, cv_tmle = TRUE, all = TRUE, 
                               penalty_type = NULL){
+  
+  # retreive relevant tasks
+  task_Q <- tmle_task$get_regression_task("Y")
+  task_g <- tmle_task$get_regression_task("A")
+  
+  # Train SL for Q 
+  Q_fit <- sl_Y$train(task_Q)
   
   tmle_fits <- list()
   risks <- list()
   n_clever_covs <- list() 
   
-  learner_list[[1]] <- list(A = g_fits[[1]], Y = Q_fit)
+  # build initial triplet
+  g_tasks[[1]] <- task_g$next_in_chain(covariates = g_models[[1]])
+  g_fits[[1]] <- sl_A$train(g_tasks[[1]])
+  learner_lists[[1]] <- list(A = g_fits[[1]], Y = Q_fit)
   initial_likelihood <- tmle_spec$make_initial_likelihood(tmle_task,
                                                           learner_lists[[1]])
   tmle_fits[[1]] <- do_tmle_fit(tmle_spec, tmle_task, initial_likelihood, 
-                                cv_tmle, convergence_type)
+                          cv_tmle, convergence_type)
   risks[[1]] <- mean(calc_empirical_loss(tmle_fits[[1]], tmle_task))
   
   n_clever_covs[[1]] <- 1
   
   # build following triplets based on the previous triplet
-  if(length(g_fits) > 1){
-    for(i in 2:length(g_fits)){
-      # set up i-specific g_task, g_fit, learner_list, lf_A
-      learner_list <- list(A = g_fit[[i]], Y = Q_fit)
-      lf_A <- LF_fit$new("A", learner_list[["A"]])
-      lf_W <- LF_emp$new("W")
-      
-      # use previous *initial* likelihood as current initial likelihood 
-      lf_Y <- tmle3:::LF_targeted$new("Y", tmle_fits[[i-1]]$likelihood$initial_likelihood)
-      factor_list <- list(lf_W, lf_A, lf_Y)
+  for(i in 2:length(g_models)){
+    # set up i-specific g_task, g_fit, learner_list, lf_A
+    g_task <- task_g$next_in_chain(covariates = g_models[[i]])
+    g_fit <- sl_A$train(g_task)
+    learner_list <- list(A = g_fit, Y = Q_fit)
+    lf_A <- LF_fit$new("A", learner_list[["A"]])
+    lf_W <- LF_emp$new("W")
+    
+    # use previous *initial* likelihood as current initial likelihood 
+    lf_Y <- LF_targeted$new("Y", tmle_fits[[i-1]]$likelihood$initial_likelihood)
+    factor_list <- list(lf_W, lf_A, lf_Y)
+    likelihood_def <- Likelihood$new(factor_list)
+    initial_likelihood <- likelihood_def$train(tmle_task)
+    tmle_fit <- do_tmle_fit(tmle_spec, tmle_task, initial_likelihood, cv_tmle,
+                            convergence_type)
+    risk <- mean(calc_empirical_loss(tmle_fit, tmle_task))
+    
+    if(risks[[i-1]] > risk){
+      risks[[i]] <- risk
+      tmle_fits[[i]] <- tmle_fit
+      n_clever_covs[[i]] <- n_clever_covs[[i-1]]
+    }
+    if(risks[[i-1]] <= risk){
+      # use previous *targeted* likelihood as current initial likelihood
+      lf_targ <- tmle3:::LF_targeted$new("Y", tmle_fits[[i-1]]$likelihood)
+      factor_list <- list(lf_W, lf_A, lf_targ)
       likelihood_def <- Likelihood$new(factor_list)
       initial_likelihood <- likelihood_def$train(tmle_task)
-      tmle_fit <- do_tmle_fit(tmle_spec, tmle_task, initial_likelihood, cv_tmle,
-                              convergence_type)
-      risk <- mean(calc_empirical_loss(tmle_fit, tmle_task))
-      
-      if(risks[[i-1]] > risk){
-        risks[[i]] <- risk
-        tmle_fits[[i]] <- tmle_fit
-        n_clever_covs[[i]] <- n_clever_covs[[i-1]]
-      }
-      if(risks[[i-1]] <= risk){
-        # use previous *targeted* likelihood as current initial likelihood
-        lf_targ <- tmle3:::LF_targeted$new("Y", tmle_fits[[i-1]]$likelihood)
-        factor_list <- list(lf_W, lf_A, lf_targ)
-        likelihood_def <- Likelihood$new(factor_list)
-        initial_likelihood <- likelihood_def$train(tmle_task)
-        tmle_fits[[i]] <- do_tmle_fit(tmle_spec, tmle_task, initial_likelihood, 
-                                      cv_tmle, convergence_type)
-        risks[[i]] <- mean(calc_empirical_loss(tmle_fits[[i]], tmle_task))
-        n_clever_covs[[i]] <- n_clever_covs[[i-1]] + 1
-      }
-      
-      if(all == FALSE){
-        if(penalty_type == "AIC"){
-          # add another hyperparameter to change the relative scales
-          AIC_current <- 2*n_clever_covs[[i]] + 2*n*risks[[i]]
-          AIC_prior <- 2*n_clever_covs[[i-1]] + 2*n*risks[[i-1]]
-          if(AIC_current > AIC_prior){
-            break
-          }
+      tmle_fits[[i]] <- do_tmle_fit(tmle_spec, tmle_task, initial_likelihood, 
+                                    cv_tmle, convergence_type)
+      risks[[i]] <- mean(calc_empirical_loss(tmle_fits[[i]], tmle_task))
+      n_clever_covs[[i]] <- n_clever_covs[[i-1]] + 1
+    }
+    
+    if(all == FALSE){
+      if(penalty_type == "AIC"){
+        AIC_current <- 2*n_clever_covs[[i]] + 2*n*risks[[i]]
+        AIC_prior <- 2*n_clever_covs[[i-1]] + 2*n*risks[[i-1]]
+        if(AIC_current > AIC_prior){
+          break
         }
-        if(penalty_type == "BIC"){
-          BIC_current <- log(n)*n_clever_covs[[i]] + 2*n*risks[[i]]
-          BIC_prior <- log(n)*n_clever_covs[[i-1]] + 2*n*risks[[i-1]]
-          if(BIC_current > BIC_prior){
-            break
-          }
+      }
+      if(penalty_type == "BIC"){
+        BIC_current <- log(n)*n_clever_covs[[i]] + 2*n*risks[[i]]
+        BIC_prior <- log(n)*n_clever_covs[[i-1]] + 2*n*risks[[i-1]]
+        if(BIC_current > BIC_prior){
+          break
         }
       }
     }
@@ -167,11 +176,11 @@ do_tmle_fit <- function(tmle_spec, tmle_task, initial_likelihood, cv_tmle,
 # stopping_criteria_penalty_full ---
 # generates all triplets and selects optimal as minimizer of BIC or AIC
 ################################################################################
-stopping_criteria_penalty_full <- function(data, tmle_spec, tmle_task, Q_fit, 
-                                           g_fits, convergence_type,
+stopping_criteria_penalty_full <- function(data, tmle_spec, tmle_task, sl_Y, 
+                                           sl_A, g_models, convergence_type,
                                            penalty_type){
   
-  triplets <- generate_triplets(tmle_spec, tmle_task, Q_fit, g_fits, 
+  triplets <- generate_triplets(tmle_spec, tmle_task, sl_Y, sl_A, g_models, 
                                 convergence_type) 
   n <- nrow(tmle_task$data)
   n_clever_covs <- unlist(triplets$n_clever_covs)
@@ -194,31 +203,13 @@ stopping_criteria_penalty_full <- function(data, tmle_spec, tmle_task, Q_fit,
 # generates triplets until increase in log-likelihood does not beat BIC/AIC 
 ################################################################################
 # increase LL by 2 vs increase LL by log(n)
-stopping_criteria_penalty_fast <- function(data, tmle_spec, tmle_task, Q_fit, 
-                                           g_fits, convergence_type, type, 
-                                           penalty_type){
-  
-  triplets <- generate_triplets(tmle_spec, tmle_task, Q_fits, g_fits, 
+stopping_criteria_penalty_fast <- function(data, tmle_spec, tmle_task, sl_Y, 
+                                           sl_A, g_models, convergence_type,
+                                           type, penalty_type){
+  triplets <- generate_triplets(tmle_spec, tmle_task, sl_Y, sl_A, g_models, 
                                 convergence_type, all = FALSE, 
                                 penalty_type = penalty_type)
   k <- length(triplets[["risks"]]) - 1
-  return(k)
-}
-
-################################################################################
-# stopping_criteria_cv_revere  ---
-# generates all triplets and selects optimal as minimizer CV empirical loss
-################################################################################
-
-stopping_criteria_cv_revere <- function(data, tmle_spec, tmle_task, Q_fit, 
-                                        g_fits, convergence_type,
-                                 cv_tmle){
-  triplets <- generate_triplets(tmle_spec, tmle_task, Q_fit, g_fits, 
-                                convergence_type, cv_tmle = TRUE)
-  n <- nrow(tmle_task$data)
-  n_clever_covs <- unlist(triplets$n_clever_covs)
-  risks <- unlist(triplets$risks)
-  k <- which.min(risks)
   return(k)
 }
 
@@ -228,14 +219,11 @@ stopping_criteria_cv_revere <- function(data, tmle_spec, tmle_task, Q_fit,
 ################################################################################
 
 stopping_criteria_cv <- function(data, tmle_spec, tmle_task, node_list,
-                                 Q_fit, g_fits, convergence_type,
+                                 sl_Y, sl_A, g_models, convergence_type,
                                  cv_tmle, V = 5, strata_ids){
-  # stack corresponding to first fold 
-  # Q_fit$fit_object$cv_fit$fit_object$fold_fits[[1]] 
-  # tmle_task$folds[[1]]
-  folds <- tmle_task$folds
+  folds <- origami::make_folds(data, V, strata_ids)
   all_losses <- cross_validate(generate_cv_losses, folds, data, tmle_spec, 
-                               tmle_task, node_list, Q_fit, g_fits,
+                               tmle_task, node_list, sl_Y, sl_A, g_models,
                                convergence_type, cv_tmle)
   k <- which.min(colMeans(all_losses$loss_validation))
   return(k)
@@ -245,61 +233,44 @@ stopping_criteria_cv <- function(data, tmle_spec, tmle_task, node_list,
 
 # generate triplets with training and calculate the loss with the validation
 generate_cv_losses <- function(fold, data, tmle_spec, tmle_task, node_list,
-                               Q_fit, g_fits, convergence_type, cv_tmle){
-  
-  # tmle_task_training <- training(tmle_task)
-  # training_data <- training(data)
-  tmle_task_training <- tmle_spec$make_tmle_task(training_data, node_list)
-  Q_fit <- Q_fit$fold_fit(fold_index())
-  triplets <- generate_triplets(tmle_spec, tmle_task_training, Q_fit, 
-                                g_fits, convergence_type, cv_tmle)
-  
+                               sl_Y, sl_A, g_models, convergence_type, cv_tmle){
+  training_data <- training(data)
   validation_data <- validation(data)
+  tmle_task_training <- tmle_spec$make_tmle_task(training_data, node_list)
   tmle_task_validation <- tmle_spec$make_tmle_task(validation_data, node_list)
+  triplets <- generate_triplets(tmle_spec, tmle_task_training, sl_Y, sl_A, 
+                                g_models, convergence_type, cv_tmle)
   loss_validation <- sapply(triplets[["tmle_fits"]], calc_empirical_loss, 
                             tmle_task_validation)
   return(list(loss_validation = loss_validation))
 }
 
-################################################################################
-# ctmle ---
-# put it all together
-################################################################################
 
-ctmle <- function(data, tmle_spec, tmle_task, node_list, Q_fit, g_fits, 
+
+ctmle <- function(data, tmle_spec, tmle_task, node_list, sl_Y, sl_A, g_models, 
                   stopping_criteria = c("cv", "penalty_full", "penalty_fast"),
-                  penalty_type = c("AIC", "BIC", NULL), V, strata_ids,
-                  convergence_type = c("scaled_var", "sample_size"), 
-                  cv_tmle){
+                  penalty_type = c("AIC", "BIC"), V = 5, strata_ids,
+                  convergence_type = "sample_size", cv_tmle = TRUE){
   
   if(stopping_criteria == "cv"){
-    k <- stopping_criteria_cv(data, tmle_spec, tmle_task, node_list, Q_fit, 
+    k <- stopping_criteria_cv(data, tmle_spec, tmle_task, node_list, sl_Y, sl_A, 
                               g_models, convergence_type, cv_tmle, V, 
                               strata_ids)
   }
   if(stopping_criteria == "penalty_full"){
-    k <- stopping_criteria_penalty_full(data, tmle_spec, tmle_task, Q_fit, 
-                                        g_fits, convergence_type, penalty_type)
+    k <- stopping_criteria_penalty_full(data, tmle_spec, tmle_task, sl_Y, sl_A,
+                                        g_models, convergence_type,
+                                        penalty_type)
   }
   if(stopping_criteria == "penalty_fast"){
-    k <- stopping_criteria_penalty_fast(data, tmle_spec, tmle_task, Q_fit, 
-                                        g_fits, convergence_type, penalty_type)
+    k <- stopping_criteria_penalty_fast(data, tmle_spec, tmle_task, sl_Y, sl_A,
+                                        g_models, convergence_type, 
+                                        penalty_type)
   }
-  ctmle <- generate_triplets(tmle_spec, tmle_task, Q_fit, g_fits[1:k],
-                             convergence_type, cv_tmle)
+  ctmle <- generate_triplets(tmle_spec, tmle_task, sl_Y, sl_A, g_models[1:k],
+                             cv_tmle)
   tmle_fit <- ctmle[["tmle_fits"]][[k]]
   return(tmle_fit)
 }
 
-posctmle_auto <- function(tmle_spec, tmle_task, initial_likelihood){
-  
-  g_fit <- initial_likelihood$factor_list$A$learner
-  g_fits <- 
-  Q_fit <- initial_likelihood$factor_list$Y$learner
-  
-  fit <- ctmle(data, tmle_spec, tmle_task, node_list, Q_fit, g_fits, 
-               stopping_criteria = "cv", penalty_type = NULL, 
-               strata_ids = ids, convergence_type = "sample_size", 
-               cvtmle = TRUE)
-}
 
