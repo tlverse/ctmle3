@@ -46,17 +46,16 @@ sl_Y <- Lrnr_sl$new(learners = unlist(list(lrnr_mean, lrnr_glm, xgb_learners),
 sl_A <- Lrnr_sl$new(learners = unlist(list(lrnr_mean, lrnr_glm, xgb_learners), 
                                       recursive = TRUE),
                     metalearner = qb_metalearner)
+learner_list <- list(A = sl_A, Y = sl_Y) 
 initial_likelihood <- tmle_spec$make_initial_likelihood(tmle_task, learner_list)
 
 # initialize list of upper and lower bounds
-if(bounds == "default"){
-  lower_bounds <- c(1e-8, 1e-7, 1e-6, 1e-5, 1e-4, seq(1e-3, 9e-3, 5e-4), 
+lower_bounds <- c(1e-8, 1e-7, 1e-6, 1e-5, 1e-4, seq(1e-3, 9e-3, 5e-4), 
                     seq(1e-2, 9e-2, 5e-3), seq(.1, .3, 5e-3))
-  upper_bounds <- 1-lower_bounds
-  bounds <- list()
-  for(i in 1:length(lower_bounds)){
-    bounds[[i]] <- c(lower_bounds[i], upper_bounds[i])
-  }
+upper_bounds <- 1-lower_bounds
+bounds <- list()
+for(i in 1:length(lower_bounds)){
+   bounds[[i]] <- c(lower_bounds[i], upper_bounds[i])
 }
 
 # subset to bounds in which truncation will occur (i.e. in range of preds)
