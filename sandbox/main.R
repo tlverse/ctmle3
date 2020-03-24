@@ -1,55 +1,9 @@
-# devtools::load_all("~/tmle3")
-remotes::install_github("tlverse/tmle3@devel")
-remotes::install_github("tlverse/sl3@devel")
+#remotes::install_github("tlverse/tmle3@devel")
+#remotes::install_github("tlverse/sl3@devel")
 library(here)
 library(tmle3)
 library(data.table)
 library(sl3)
-library(SuperLearner)
-
-# Load data
-dat <- read.csv(here::here("get_data", "creditCardMod3.csv"))
-dat <- data.table(dat)
-covs <- colnames(dat[,-c("Y", "A")])
-
-# Define tmle3 task and spec
-node_list <- list(
-  W = covs,
-  A = "A",
-  Y = "Y"
-)
-tmle_spec <- tmle_ATE(1,0)
-tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
-
-# Set up SL library
-grid_params = list(max_depth = c(2,4,6),
-                   eta = c(0.01, 0.1, 0.2, 0.3))
-grid = expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
-params_default = list(nthread = getOption("sl.cores.learners", 1))
-xgb_learners = apply(grid, MARGIN = 1, function(params_tune) {
-  do.call(Lrnr_xgboost$new, c(params_default, as.list(params_tune)))
-})
-lrnr_mean <- make_learner(Lrnr_mean)
-lrnr_glm <- make_learner(Lrnr_glm)
-
-mn_metalearner <- make_learner(Lrnr_solnp, 
-                               loss_function = metalearner_linear_multinomial,
-                               learner_function = loss_loglik_multinomial)
-qb_metalearner <- make_learner(Lrnr_solnp, 
-                               loss_function = loss_loglik_binomial, 
-                               learner_function = metalearner_logistic_binomial) 
-metalearner <- make_learner(Lrnr_nnls)
-
-sl_Y <- Lrnr_sl$new(learners = unlist(list(lrnr_mean, lrnr_glm, xgb_learners), 
-                                      recursive = TRUE),
-                    metalearner = qb_metalearner)
-sl_A <- Lrnr_sl$new(learners = unlist(list(lrnr_mean, lrnr_glm, xgb_learners), 
-                                      recursive = TRUE),
-                    metalearner = qb_metalearner)
-initial_likelihood <- tmle_spec$make_initial_likelihood(tmle_task, learner_list)
-################################################################################
-
-################################################################################
 
 ################################################################################
 # generate_triplets ---
@@ -158,8 +112,7 @@ stopping_criteria_cv_revere <- function(data, tmle_spec, tmle_task, Q_fit,
 ################################################################################
 
 stopping_criteria_cv <- function(data, tmle_spec, tmle_task, node_list,
-                                 Q_fit, g_fits, convergence_type,
-                                 cv_tmle, V = 5, strata_ids){
+                                 Q_fit, g_fits, convergence_type, cv_tmle){
   # stack corresponding to first fold 
   # Q_fit$fit_object$cv_fit$fit_object$fold_fits[[1]] 
   # tmle_task$folds[[1]]
