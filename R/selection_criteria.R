@@ -17,8 +17,7 @@
 
 # revere uses CV-TMLE and optimal k is minimizer of CV (revere) empirical loss
 criteria_revere <- function(tmle_spec, tmle_task, Q_fit, g_fits, ...){
-  candidates <- generate_candidates(tmle_spec, tmle_task, Q_fit, g_fits, 
-                                    cvtmle = TRUE)
+  candidates <- generate_candidates(tmle_spec, tmle_task, Q_fit, g_fits, ...)
   risks <- unlist(candidates$risks)
   k <- which.min(risks)
 }
